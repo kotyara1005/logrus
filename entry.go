@@ -60,6 +60,9 @@ type Entry struct {
 	// Message passed to Trace, Debug, Info, Warn, Error, Fatal or Panic
 	Message string
 
+	RawMessage string
+	MessageParams []interface{}
+
 	// When formatter is called in entry.log(), a Buffer may be set to entry
 	Buffer *bytes.Buffer
 
@@ -212,7 +215,7 @@ func (entry Entry) HasCaller() (has bool) {
 
 // This function is not declared with a pointer value because otherwise
 // race conditions will occur when using multiple goroutines
-func (entry Entry) log(level Level, msg string) {
+func (entry Entry) log(level Level, args ...interface{}) {
 	var buffer *bytes.Buffer
 
 	// Default to now, but allow users to override if they want.
@@ -225,7 +228,13 @@ func (entry Entry) log(level Level, msg string) {
 	}
 
 	entry.Level = level
-	entry.Message = msg
+
+	if len(args) > 0 {
+		entry.Message = fmt.Sprint(args...)
+		entry.RawMessage = fmt.Sprint(args[0])
+		entry.MessageParams = args[1:]
+	}
+
 	entry.Logger.mu.Lock()
 	if entry.Logger.ReportCaller {
 		entry.Caller = getCaller()
@@ -278,7 +287,7 @@ func (entry *Entry) write() {
 
 func (entry *Entry) Log(level Level, args ...interface{}) {
 	if entry.Logger.IsLevelEnabled(level) {
-		entry.log(level, fmt.Sprint(args...))
+		entry.log(level, args...)
 	}
 }
 
